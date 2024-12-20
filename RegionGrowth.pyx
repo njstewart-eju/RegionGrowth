@@ -5,7 +5,9 @@ Created on Mon Jun 11 18:50:26 2018
 ---------------------------------------
 Modified on Thursday April 9 08:56 2020
 Support 2D grayscale image
-@author: PengyiZhang 
+@author: PengyiZhang
+
+njstewart-eju
 """
 
 from collections import deque
@@ -19,7 +21,7 @@ cimport cython
 @cython.boundscheck(False)
 @cython.wraparound(False)
 cdef class RegionGrow2D:
-    cdef np.uint8_t[:,:] images
+    cdef short[:,:] images
     cdef np.uint8_t[:,:] masks
     cdef np.uint8_t[:,:] outputMask
 
@@ -30,11 +32,11 @@ cdef class RegionGrow2D:
     cdef queue
 
 
-    def __cinit__(self, np.uint8_t[:,:] images, np.uint8_t[:,:] masks,
+    def __cinit__(self, short[:,:] images, np.uint8_t[:,:] masks,
                   int upperThreshold, int lowerThreshold, neighborMode):
         self.images = images
         self.masks = masks
-        self.outputMask = np.zeros_like(self.images)
+        self.outputMask = np.zeros_like(self.images).astype('uint8')
 
         self.sy = images.shape[0]
         self.sx = images.shape[1]
@@ -130,7 +132,7 @@ cdef class RegionGrow2D:
 @cython.boundscheck(False)
 @cython.wraparound(False)
 cdef class RegionGrow3D:
-    cdef np.uint8_t[:,:,:] images
+    cdef short[:,:,:] images
     cdef np.uint8_t[:,:,:] masks
     cdef np.uint8_t[:,:,:] outputMask
 
@@ -140,11 +142,11 @@ cdef class RegionGrow3D:
     cdef neighborMode
     cdef queue
     
-    def __cinit__(self, np.uint8_t[:,:,:] images, np.uint8_t[:,:,:] masks, 
+    def __cinit__(self, short[:,:,:] images, np.uint8_t[:,:,:] masks, 
                   int upperThreshold, int lowerThreshold, neighborMode):
         self.images = images
         self.masks = masks
-        self.outputMask = np.zeros_like(self.images)
+        self.outputMask = np.zeros_like(self.images).astype('uint8')
         self.sz = images.shape[0]
         self.sy = images.shape[1]
         self.sx = images.shape[2]
@@ -152,9 +154,12 @@ cdef class RegionGrow3D:
         self.upperThreshold = upperThreshold
         self.lowerThreshold = lowerThreshold
         self.neighborMode = neighborMode
+        
+        assert neighborMode in ["6n", "26n"], neighborMode
+        
         self.queue = deque()
     
-    def main(self, int seeds, update=False):
+    def main(self, seeds, update=False):
         """
         seed: list of (z,y,x)
         """
@@ -174,18 +179,35 @@ cdef class RegionGrow3D:
                 self.checkNeighbour(neighbor[0], neighbor[1], neighbor[2])
         return self.outputMask
 
-    cdef int[:,:,:] getNeighbors(self, int[:] newItem):
+    cdef long[:,:] getNeighbors(self, int[:] newItem):
         if self.neighborMode == "26n":
             neighbors = [
-                [newItem[0]-1, newItem[1]-1, newItem[2]-1],   [newItem[0]-1, newItem[1]-1, newItem[2]],   [newItem[0]-1, newItem[1]-1, newItem[2]+1],
-                [newItem[0]-1, newItem[1], newItem[2]-1],     [newItem[0]-1, newItem[1], newItem[2]],     [newItem[0]-1, newItem[1], newItem[2]+1],
-                [newItem[0]-1, newItem[1]+1, newItem[2]-1],   [newItem[0]-1, newItem[1]+1, newItem[2]],   [newItem[0]-1, newItem[1]+1, newItem[2]+1],
-                [newItem[0], newItem[1]-1, newItem[2]-1],     [newItem[0], newItem[1]-1, newItem[2]],     [newItem[0], newItem[1]-1, newItem[2]+1],
-                [newItem[0], newItem[1], newItem[2]-1],       [newItem[0], newItem[1], newItem[2]+1],     [newItem[0], newItem[1]+1, newItem[2]-1],
-                [newItem[0], newItem[1]+1, newItem[2]],       [newItem[0], newItem[1]+1, newItem[2]+1],   [newItem[0]+1, newItem[1]-1, newItem[2]-1],
-                [newItem[0]+1, newItem[1]-1, newItem[2]],     [newItem[0]+1, newItem[1]-1, newItem[2]+1], [newItem[0]+1, newItem[1], newItem[2]-1],
-                [newItem[0]+1, newItem[1], newItem[2]],       [newItem[0]+1, newItem[1], newItem[2]+1],   [newItem[0]+1, newItem[1]+1, newItem[2]-1],
-                [newItem[0]+1, newItem[1]+1, newItem[2]],     [newItem[0]+1, newItem[1]+1, newItem[2]+1]
+                [newItem[0]-1, newItem[1]-1, newItem[2]-1],
+                [newItem[0]-1, newItem[1]-1, newItem[2]],
+                [newItem[0]-1, newItem[1]-1, newItem[2]+1],
+                [newItem[0]-1, newItem[1], newItem[2]-1],
+                [newItem[0]-1, newItem[1], newItem[2]],
+                [newItem[0]-1, newItem[1], newItem[2]+1],
+                [newItem[0]-1, newItem[1]+1, newItem[2]-1],
+                [newItem[0]-1, newItem[1]+1, newItem[2]],
+                [newItem[0]-1, newItem[1]+1, newItem[2]+1],
+                [newItem[0], newItem[1]-1, newItem[2]-1],
+                [newItem[0], newItem[1]-1, newItem[2]],
+                [newItem[0], newItem[1]-1, newItem[2]+1],
+                [newItem[0], newItem[1], newItem[2]-1],
+                [newItem[0], newItem[1], newItem[2]+1],
+                [newItem[0], newItem[1]+1, newItem[2]-1],
+                [newItem[0], newItem[1]+1, newItem[2]],
+                [newItem[0], newItem[1]+1, newItem[2]+1],
+                [newItem[0]+1, newItem[1]-1, newItem[2]-1],
+                [newItem[0]+1, newItem[1]-1, newItem[2]],
+                [newItem[0]+1, newItem[1]-1, newItem[2]+1],
+                [newItem[0]+1, newItem[1], newItem[2]-1],
+                [newItem[0]+1, newItem[1], newItem[2]],
+                [newItem[0]+1, newItem[1], newItem[2]+1],
+                [newItem[0]+1, newItem[1]+1, newItem[2]-1],
+                [newItem[0]+1, newItem[1]+1, newItem[2]],
+                [newItem[0]+1, newItem[1]+1, newItem[2]+1],
             ] 
                                 
         elif self.neighborMode == "6n":
